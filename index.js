@@ -21,6 +21,9 @@ mongoose.connect(MONGODB_URI, {
 app.use('/api/todos', todoRoutes);
 
 const port = process.env.PORT || 3000;
+app.get('/', async (req, res) => {
+  res.send('Pos portal server is running');
+});
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

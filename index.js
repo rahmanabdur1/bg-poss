@@ -3,6 +3,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const todoRoutes = require('./routes/todoRoutes');
 const userRoleRoutes = require('./routes/userRoleRoutes');
+const userRoutes = require('./routes/userRoute');
 
 require('dotenv').config();
 
@@ -22,6 +23,8 @@ mongoose.connect(MONGODB_URI, {
 app.use('/api/todos', todoRoutes);
 
 app.use("/api/userrole", userRoleRoutes);
+
+app.use("/api/user", userRoutes);
 
 const port = process.env.PORT || 3000;
 app.get('/', async (req, res) => {

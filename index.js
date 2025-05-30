@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const todoRoutes = require('./routes/todoRoutes');
+const userRoleRoutes = require('./routes/userRoleRoutes');
 
 require('dotenv').config();
 
@@ -19,6 +20,8 @@ mongoose.connect(MONGODB_URI, {
 .catch(err => console.error('MongoDB connection error:', err));
 
 app.use('/api/todos', todoRoutes);
+
+app.use("/api/userrole", userRoleRoutes);
 
 const port = process.env.PORT || 3000;
 app.get('/', async (req, res) => {

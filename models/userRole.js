@@ -3,17 +3,26 @@ const mongoose = require('mongoose');
 const permissionSchema = new mongoose.Schema({
   module: String,
   subModule: String,
-  auto: {
+    authorized: {
+     create: Boolean,
+    view: Boolean,
+    edit: Boolean,
+    delete: Boolean
+  },
+   status: {
+      create: Boolean,
     view: Boolean,
     edit: Boolean,
     delete: Boolean
   },
   ownData: {
+    create: Boolean,
     view: Boolean,
     edit: Boolean,
     delete: Boolean
   },
   otherUserData: {
+      create: Boolean,
     view: Boolean,
     edit: Boolean,
     delete: Boolean

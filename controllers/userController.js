@@ -1,4 +1,4 @@
-
+const UserRole = require('../models/userRole');
 const User = require('../models/newUser');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -60,23 +60,39 @@ exports.createUser = async (req, res) => {
       customPermissions
     } = req.body;
 
+    // Validate required fields
     if (!firstName || !lastName || !username || !email || !phone || !password || !confirmPassword) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
+
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+
     if (enableCustomAccess && userRole) {
       return res.status(400).json({ message: 'Cannot enable both custom access and assign a role' });
     }
 
+    // Check for duplicate user
     const existingUser = await User.findOne({ $or: [{ email }, { username }, { phone }] });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email, username, or phone already exists' });
     }
 
-    const userRoleValue = (!userRole || userRole === "null" || userRole === "") ? null : userRole;
+    // Validate user role (if provided)
+    let userRoleValue = null;
+    if (userRole && userRole !== "null" && userRole !== "") {
+      const role = await UserRole.findById(userRole);
+      if (!role) {
+        return res.status(400).json({ message: 'Invalid user role selected' });
+      }
+      userRoleValue = role._id;
+    }
 
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
     const newUser = new User({
       image,
       firstName,
@@ -85,16 +101,19 @@ exports.createUser = async (req, res) => {
       username,
       email,
       phone,
-      password,
+      password: hashedPassword,
       userRole: userRoleValue,
       enableCustomAccess,
       customPermissions: enableCustomAccess ? customPermissions : [],
     });
 
     await newUser.save();
+
+    // Generate tokens
     const { accessToken, refreshToken } = generateTokens(newUser._id);
     setCookies(res, accessToken, refreshToken);
 
+    // Send response
     res.status(201).json({
       message: 'User created successfully',
       user: {
@@ -111,6 +130,7 @@ exports.createUser = async (req, res) => {
         createdAt: newUser.createdAt
       }
     });
+
   } catch (error) {
     console.error('Error creating user:', error.message);
     res.status(500).json({ message: 'Server error while creating user' });

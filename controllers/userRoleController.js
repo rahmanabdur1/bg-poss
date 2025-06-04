@@ -1,6 +1,6 @@
-const UserRole = require('../models/userRole');
+const UserRole = require('../models/UserRole');
 
-exports.createRole = async (req, res) => {
+export async function createRole(req, res) {
   try {
     const { name, description, permissions, createdBy } = req.body;
     if (!name || !description) {
@@ -21,14 +21,14 @@ exports.createRole = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to create user role', error: error.message });
   }
-};
+}
 
-exports.getUserRoleList = async (req, res) => {
+export async function getUserRoleList(req, res) {
   try {
     const { page = 1, limit = 10, ...filters } = req.query;
     const filter = buildRoleFilter(filters);
 
-    const roles = await UserRole.find(filter)
+    const roles = await find(filter)
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
@@ -48,13 +48,13 @@ exports.getUserRoleList = async (req, res) => {
       status: role.status
     }));
 
-    const total = await UserRole.countDocuments(filter);
+    const total = await countDocuments(filter);
 
     res.status(200).json({ total, page: parseInt(page), limit: parseInt(limit), data });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch user roles', error: error.message });
   }
-};
+}
 
 const buildRoleFilter = (filters) => {
   const filter = {};
@@ -84,12 +84,12 @@ const buildRoleFilter = (filters) => {
   return filter;
 };
 
-exports.editRole = async (req, res) => {
+export async function editRole(req, res) {
   try {
     const { id } = req.params;
     const update = req.body;
 
-    const role = await UserRole.findById(id);
+    const role = await findById(id);
     if (!role) {
       return res.status(404).json({ message: 'UserRole not found.' });
     }
@@ -101,12 +101,12 @@ exports.editRole = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to update user role', error: error.message });
   }
-};
+}
 
-exports.deleteRole = async (req, res) => {
+export async function deleteRole(req, res) {
   try {
     const { id } = req.params;
-    const deletedRole = await UserRole.findByIdAndDelete(id);
+    const deletedRole = await findByIdAndDelete(id);
     if (!deletedRole) {
       return res.status(404).json({ message: 'UserRole not found.' });
     }
@@ -114,4 +114,4 @@ exports.deleteRole = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete user role', error: error.message });
   }
-};
+}

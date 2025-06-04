@@ -1,22 +1,25 @@
-const UserRole = require('../models/userRole');
-const User = require('../models/newUser');
+// controllers/userController.js
+const UserRole = require('../models/UserRole');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 const emailConfig = {
   service: 'gmail',
   auth: {
-    user:'rahmanabdurr65@gmail.com',
-    pass:'sviu rehb oqut galk',
+    user: 'rahmanabdurr65@gmail.com',
+    pass: 'sviu rehb oqut galk',
   },
 };
 
+const transporter = nodemailer.createTransport(emailConfig);
+
 const sendOTP = async (email, otp) => {
-  const transporter = nodemailer.createTransport(emailConfig);
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: emailConfig.auth.user,
     to: email,
-    subject: "Your OTP for Verification",
+    subject: 'Your OTP for Verification',
     html: `<p>Your OTP is: <b>${otp}</b></p>`,
   };
   await transporter.sendMail(mailOptions);
@@ -29,16 +32,16 @@ const generateTokens = (userId) => {
 };
 
 const setCookies = (res, accessToken, refreshToken) => {
-  res.cookie("accessToken", accessToken, {
+  res.cookie('accessToken', accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
     maxAge: 15 * 60 * 1000,
   });
-  res.cookie("refreshToken", refreshToken, {
+  res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
@@ -60,39 +63,26 @@ exports.createUser = async (req, res) => {
       customPermissions
     } = req.body;
 
-    // Validate required fields
-    if (!firstName || !lastName || !username || !email || !phone || !password || !confirmPassword) {
-      return res.status(400).json({ message: 'Please fill in all required fields' });
-    }
+    if (!firstName || !lastName || !username || !email || !phone || !password || !confirmPassword)
+      return res.status(400).json({ message: 'All required fields must be filled' });
 
-    if (password !== confirmPassword) {
+    if (password !== confirmPassword)
       return res.status(400).json({ message: 'Passwords do not match' });
-    }
 
-    if (enableCustomAccess && userRole) {
-      return res.status(400).json({ message: 'Cannot enable both custom access and assign a role' });
-    }
+    if (enableCustomAccess && userRole)
+      return res.status(400).json({ message: 'Cannot use both custom access and role' });
 
-    // Check for duplicate user
     const existingUser = await User.findOne({ $or: [{ email }, { username }, { phone }] });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User with this email, username, or phone already exists' });
-    }
+    if (existingUser)
+      return res.status(400).json({ message: 'User already exists' });
 
-    // Validate user role (if provided)
     let userRoleValue = null;
-    if (userRole && userRole !== "null" && userRole !== "") {
+    if (userRole && userRole !== 'null' && userRole !== '') {
       const role = await UserRole.findById(userRole);
-      if (!role) {
-        return res.status(400).json({ message: 'Invalid user role selected' });
-      }
+      if (!role) return res.status(400).json({ message: 'Invalid user role' });
       userRoleValue = role._id;
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create new user
     const newUser = new User({
       image,
       firstName,
@@ -101,7 +91,7 @@ exports.createUser = async (req, res) => {
       username,
       email,
       phone,
-      password: hashedPassword,
+      password,
       userRole: userRoleValue,
       enableCustomAccess,
       customPermissions: enableCustomAccess ? customPermissions : [],
@@ -109,31 +99,13 @@ exports.createUser = async (req, res) => {
 
     await newUser.save();
 
-    // Generate tokens
     const { accessToken, refreshToken } = generateTokens(newUser._id);
     setCookies(res, accessToken, refreshToken);
 
-    // Send response
-    res.status(201).json({
-      message: 'User created successfully',
-      user: {
-        _id: newUser._id,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-        username: newUser.username,
-        phone: newUser.phone,
-        designation: newUser.designation,
-        role: newUser.userRole,
-        enableCustomAccess: newUser.enableCustomAccess,
-        image: newUser.image,
-        createdAt: newUser.createdAt
-      }
-    });
-
+    res.status(201).json({ message: 'User created', user: newUser });
   } catch (error) {
-    console.error('Error creating user:', error.message);
-    res.status(500).json({ message: 'Server error while creating user' });
+    console.error('Create user error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -141,9 +113,8 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
+    if (!user || !(await user.comparePassword(password)))
+      return res.status(400).json({ message: 'Invalid credentials' });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     user.otp = otp;
@@ -151,33 +122,9 @@ exports.login = async (req, res) => {
     await user.save();
 
     await sendOTP(email, otp);
-    res.status(200).json({ message: "OTP sent to your email for verification." });
+    res.status(200).json({ message: 'OTP sent' });
   } catch (error) {
-    console.log("Error in login OTP step:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-exports.logout = async (req, res) => {
-  try {
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
-    res.json({ message: "Logged out successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.refreshToken = async (req, res) => {
-  try {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) return res.status(401).json({ message: "No refresh token provided" });
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    const accessToken = jwt.sign({ userId: decoded.userId }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
-    setCookies(res, accessToken, refreshToken);
-    res.json({ message: "Token refreshed successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -185,12 +132,8 @@ exports.verifyLoginOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !user.otp || user.otpExpiry < Date.now()) {
-      return res.status(400).json({ message: "OTP expired or invalid." });
-    }
-    if (parseInt(user.otp) !== parseInt(otp)) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
+    if (!user || user.otp !== parseInt(otp) || user.otpExpiry < Date.now())
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
 
     user.otp = undefined;
     user.otpExpiry = undefined;
@@ -198,29 +141,43 @@ exports.verifyLoginOTP = async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(user._id);
     setCookies(res, accessToken, refreshToken);
-    res.json({
-      message: "Login successful",
-      user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-      },
-    });
+
+    res.json({ message: 'Login successful', user });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
+exports.logout = (req, res) => {
+  try {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.json({ message: 'Logged out' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.refreshToken = (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) return res.status(401).json({ message: 'Token missing' });
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const accessToken = jwt.sign({ userId: decoded.userId }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+
+    setCookies(res, accessToken, refreshToken);
+    res.json({ message: 'Token refreshed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 exports.requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
-
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     user.otp = otp;
@@ -228,39 +185,32 @@ exports.requestPasswordReset = async (req, res) => {
     await user.save();
 
     await sendOTP(email, otp);
-    res.status(200).json({ message: "OTP sent to your email for password reset." });
+    res.json({ message: 'OTP sent' });
   } catch (error) {
-    console.error("Error requesting password reset:", error.message);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 exports.confirmPasswordReset = async (req, res) => {
   try {
     const { email, otp, newPassword, confirmPassword } = req.body;
+    if (!email || !otp || !newPassword || !confirmPassword)
+      return res.status(400).json({ message: 'All fields are required' });
 
-    if (!email || !otp || !newPassword || !confirmPassword) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
-    }
+    if (newPassword !== confirmPassword)
+      return res.status(400).json({ message: 'Passwords do not match' });
 
     const user = await User.findOne({ email });
-    if (!user || user.otp !== parseInt(otp) || user.otpExpiry < Date.now()) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
+    if (!user || user.otp !== parseInt(otp) || user.otpExpiry < Date.now())
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
 
     user.password = await bcrypt.hash(newPassword, 10);
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
 
-    res.status(200).json({ message: "Password reset successful" });
+    res.json({ message: 'Password reset successful' });
   } catch (error) {
-    console.error("Error resetting password:", error.message);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: 'Server error' });
   }
 };

@@ -3,22 +3,31 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const permissionSchema = new mongoose.Schema({
-  module: { type: String },
-  subModule: { type: String },
-  auto: {
-    view: { type: Boolean, default: false },
-    edit: { type: Boolean, default: false },
-    delete: { type: Boolean, default: false },
+  module: String,
+  subModule: String,
+  authorized: {
+    create: Boolean,
+    view: Boolean,
+    edit: Boolean,
+    delete: Boolean
+  },
+  status: {
+    create: Boolean,
+    view: Boolean,
+    edit: Boolean,
+    delete: Boolean
   },
   ownData: {
-    view: { type: Boolean, default: false },
-    edit: { type: Boolean, default: false },
-    delete: { type: Boolean, default: false },
+    create: Boolean,
+    view: Boolean,
+    edit: Boolean,
+    delete: Boolean
   },
   otherUserData: {
-    view: { type: Boolean, default: false },
-    edit: { type: Boolean, default: false },
-    delete: { type: Boolean, default: false },
+    create: Boolean,
+    view: Boolean,
+    edit: Boolean,
+    delete: Boolean
   }
 });
 
@@ -34,8 +43,8 @@ const userSchema = new mongoose.Schema({
   userRole: { type: mongoose.Schema.Types.ObjectId, ref: 'UserRole', default: null },
   enableCustomAccess: { type: Boolean, default: false },
   isVerified: { type: Boolean, default: false },
-  otp: { type: Number },
-  otpExpiry: { type: Date },
+  otp: Number,
+  otpExpiry: Date,
   customPermissions: {
     type: [permissionSchema],
     default: []

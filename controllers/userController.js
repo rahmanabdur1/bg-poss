@@ -1,6 +1,5 @@
-// controllers/userController.js
-const UserRole = require('../models/UserRole');
-const User = require('../models/User');
+const User = require('../models/newUser');
+ const UserRole = require('../models/UserRole'); 
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
@@ -113,8 +112,9 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password)))
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     user.otp = otp;
@@ -128,25 +128,37 @@ exports.login = async (req, res) => {
   }
 };
 
+
 exports.verifyLoginOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const user = await User.findOne({ email });
-    if (!user || user.otp !== parseInt(otp) || user.otpExpiry < Date.now())
+    console.log(user,'user')
+
+    if (!user || user.otp !== parseInt(otp) || user.otpExpiry < Date.now()) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
 
     user.otp = undefined;
     user.otpExpiry = undefined;
+    user.isVerified = true;
+
     await user.save();
+
+    const updatedUser = await User.findById(user._id); // ✅ Re-fetch from DB to confirm
+    console.log('Updated user isVerified:', updatedUser.isVerified); // Should be true
 
     const { accessToken, refreshToken } = generateTokens(user._id);
     setCookies(res, accessToken, refreshToken);
 
-    res.json({ message: 'Login successful', user });
+    res.json({ message: 'Login successful', user: updatedUser }); // Return updated user
   } catch (error) {
+    console.error('verifyLoginOTP error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+
 
 exports.logout = (req, res) => {
   try {

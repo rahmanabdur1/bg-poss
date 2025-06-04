@@ -1,6 +1,6 @@
 const UserRole = require('../models/UserRole');
 
-export async function createRole(req, res) {
+exports.createRole = async (req, res) => {
   try {
     const { name, description, permissions, createdBy } = req.body;
     if (!name || !description) {
@@ -23,7 +23,7 @@ export async function createRole(req, res) {
   }
 }
 
-export async function getUserRoleList(req, res) {
+exports.getUserRoleList=async(req, res)=> {
   try {
     const { page = 1, limit = 10, ...filters } = req.query;
     const filter = buildRoleFilter(filters);
@@ -84,7 +84,7 @@ const buildRoleFilter = (filters) => {
   return filter;
 };
 
-export async function editRole(req, res) {
+exports.editRole=async(req, res)=> {
   try {
     const { id } = req.params;
     const update = req.body;
@@ -103,7 +103,7 @@ export async function editRole(req, res) {
   }
 }
 
-export async function deleteRole(req, res) {
+exports.deleteRole=async(req, res)=> {
   try {
     const { id } = req.params;
     const deletedRole = await findByIdAndDelete(id);

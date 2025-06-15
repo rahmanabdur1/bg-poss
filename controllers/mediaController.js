@@ -2,7 +2,7 @@
 const axios = require('axios');
 const Media = require('../models/Media');
 
-const IMGBB_API_KEY = '344a0af95606b309196b820578e3b795';
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
 
 exports.uploadMedia = async (req, res) => {
   try {
